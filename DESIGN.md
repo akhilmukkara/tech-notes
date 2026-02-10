@@ -229,7 +229,7 @@ The specifics of where to place instrumentation calls and how to handle edge cas
 
 ---
 
-## Implementation Approach
+## Implementation Timeline
 
 I envision this work happening in three phases:
 
