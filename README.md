@@ -23,13 +23,21 @@ I'm Akhil Mukkara, a LitmusChaos contributor preparing for the "Add Prometheus M
 
 To understand observability deeply, I built a working demo: https://github.com/akhilmukkara/prometheus-grafana-observability-demo
 
-### Links
+### My LitmusChaos Work
 
-- **LFX Mentorship Issue:** https://github.com/litmuschaos/litmus/issues/5338
-- **My Observability Demo:** https://github.com/akhilmukkara/prometheus-grafana-observability-demo
-- **My Contributions:**
-  - [PR #5257](https://github.com/litmuschaos/litmus/pull/5257) - UI improvement
-  - [PR #4897](https://github.com/litmuschaos/litmus/pull/4897) - Helm docs
+**Merged Contributions:**
+- [litmus-docs #425](https://github.com/litmuschaos/litmus-docs/pull/425) - Fixed ARM64 MongoDB installation documentation
+
+**Active PRs (Under Review):**
+- [litmus #5383](https://github.com/litmuschaos/litmus/pull/5383) - Implemented Helm installation method in ChaosCenter UI
+- [litmus #5365](https://github.com/litmuschaos/litmus/pull/5365) - Enhanced experiment status icons with warning indicators
+- [litmus #4217](https://github.com/litmuschaos/litmus/pull/4217) - Refactored MongoDB dependency injection in control plane services
+
+**Preparation Work:**
+- [Observability Demo](https://github.com/akhilmukkara/prometheus-grafana-observability-demo) - Complete Prometheus + Grafana stack built from scratch
+- [Application Comment](https://github.com/litmuschaos/litmus/issues/5338#issuecomment-3721702000) - Engagement on mentorship issue
+
+**Current Status:** Contributor with merged PR and active contributions, local dev environment set up, familiar with control plane architecture (GraphQL, Auth, MongoDB)
 
 ---
 
