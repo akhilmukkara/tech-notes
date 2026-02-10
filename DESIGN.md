@@ -161,7 +161,7 @@ I'd definitely need guidance on things like:
 Being honest about what I don't know:
 
 **Technical stuff:**
-- How do you instrument a GraphQL server properly? Middleware? Or in each resolver?
+- How do you instrument a GraphQL server properly?
 - What if the operator reconciles super frequently - will that create too much metric data?
 - How do we track experiments that fail before they even start running?
 - Should each experiment pod expose metrics, or should the operator aggregate them?
