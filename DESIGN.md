@@ -1,408 +1,233 @@
-# LitmusChaos Observability: Adding Prometheus Metrics
+# LitmusChaos Observability: My Thoughts on Adding Prometheus Metrics
 
 **Author:** Akhil Mukkara  
 **Date:** February 8, 2026
 
 ---
 
-## Why This Matters
+## Why I Care About This
 
-I've been running LitmusChaos locally and contributing to the project, and one thing that's been bugging me is that it's hard to know what's actually happening under the hood. When I run chaos experiments, I can't easily answer basic questions like:
+I've been using LitmusChaos locally and trying to understand how everything works. One thing that's been frustrating is that I can't really see what's happening. Like, when I run experiments:
 
-- How many experiments are running right now?
-- What's my success rate?
-- Why did that experiment take so long?
-- Is the control plane healthy?
+- Are they actually running right now?
+- Did that last one succeed or fail?
+- Why is this taking so long?
+- Is something broken in the control plane?
 
-I built a Prometheus + Grafana demo (https://github.com/akhilmukkara/prometheus-grafana-observability-demo) to learn how observability works, and I think LitmusChaos needs something similar. This doc outlines what I'd add and how I'd approach it.
+I have to dig through logs or check the UI constantly, and even then it's not always clear.
 
----
+So I decided to learn about observability. I built a demo with Prometheus and Grafana (https://github.com/akhilmukkara/prometheus-grafana-observability-demo) to understand how this stuff works. It was really helpful - now I can actually SEE what's happening in my demo app.
 
-## What I Learned Building My Demo
-
-Before diving into LitmusChaos specifics, here's what I learned from building my observability demo:
-
-**The Three Metric Types:**
-
-**Counters** only go up - perfect for counting total events. In my demo, I used `chaos_experiments_total` to count all experiments. Every time an experiment runs, the counter increments. You can then use `rate()` in PromQL to see experiments per second.
-
-**Gauges** go up and down - perfect for current state. I used `chaos_experiments_active` to show how many experiments are running right now. It goes: 0 → 3 → 5 → 2 → 0 as experiments start and stop.
-
-**Histograms** track distributions - perfect for durations. I used `chaos_experiment_duration_seconds` to track how long experiments take. Prometheus automatically creates buckets, and you can calculate percentiles like "95% of experiments complete in under 10 seconds."
-
-**How the whole thing works:**
-
-Your Go app exposes a `/metrics` endpoint that returns plain text. Prometheus scrapes it every 15 seconds and stores the data. Grafana queries Prometheus and draws graphs. Simple, but powerful.
+I think LitmusChaos needs something similar. This doc is my attempt at thinking through what that would look like.
 
 ---
 
-## Current State
+## What I Learned from Building My Demo
 
-### Existing Metrics Work
+I'll be honest - before building the demo, I didn't really understand Prometheus. But after working through it, here's what I picked up:
 
-There is currently an open PR (#791) that adds Prometheus metrics for experiment execution. My proposal builds upon this foundation by extending observability to the entire LitmusChaos stack - control plane, operator, and adding user-facing dashboards.
+**Counters** - These just count things. Every time something happens, add 1. In my demo, I used this to count total experiments. You can't decrease a counter, it only goes up.
 
-**What exists/is in progress:**
-- Experiment execution metrics (PR #791)
+**Gauges** - These show current state. They can go up or down. I used this for "how many experiments are running RIGHT NOW." So it goes 0 → 2 → 3 → 1 → 0 as experiments start and stop.
 
-**What I'm proposing to add:**
-- Control plane metrics (GraphQL API, Authentication)
-- Chaos operator metrics (reconciliation, queue depth)
-- Grafana dashboards with real-time visualization
-- Comprehensive documentation and examples
+**Histograms** - These track how long things take. This was the trickiest one to understand. Basically Prometheus puts durations into "buckets" and then you can ask questions like "how many experiments took between 1-5 seconds?" or "what's the 95th percentile?"
 
-The goal is complete observability across all LitmusChaos components, not just experiment execution.
+**The basic flow is:**
+1. Your app exposes a `/metrics` page with plain text
+2. Prometheus visits that page every 15 seconds and saves the numbers
+3. Grafana queries Prometheus and makes graphs
+4. You can see what's happening in real-time
 
----
-
-## Components That Need Metrics
-
-Based on my understanding of the LitmusChaos architecture, here are all the components that should be instrumented:
-
-### 1. Control Plane (litmus-portal)
-
-**GraphQL Server** - This is the main API that the frontend talks to. We need to know:
-- Request rate (queries per second)
-- Error rate (how many queries fail)
-- Latency (how long queries take)
-- Most-used operations (which queries are called most)
-
-**Authentication Server** - Handles user login and auth. We need:
-- Login attempts (total and by success/failure)
-- Active sessions
-- Token validation time
-- Auth errors by type
-
-**Frontend Server** - Serves the React app. Less critical, but useful to track:
-- Page load times
-- API call errors (from browser perspective)
-- Active users
-
-### 2. Chaos Infrastructure
-
-**Chaos Operator** - The Kubernetes operator that reconciles experiment CRDs. We need:
-- Reconciliation loops (how often it runs)
-- Reconciliation duration (time to process an experiment)
-- Reconciliation errors
-- Experiment queue depth
-
-**Chaos Experiments (litmus-go)** - The actual chaos injection code. Building on the existing PR #791 work, I'd add:
-- Experiment lifecycle states (pending → running → completed)
-- Injection success/failure tracking
-- Target pod metrics (which pods are being chaos'd)
-- Recovery metrics (did targets recover properly)
-- Resource impact during chaos
-
-**Chaos Runner** - Manages experiment execution. We need:
-- Runner pod health
-- Experiment assignments
-- Execution errors
-
-### 3. Database Layer
-
-**MongoDB** - The backend database. We should track:
-- Query duration
-- Query types (read vs write)
-- Connection pool usage
-- Errors
-
-We could use the MongoDB exporter for this rather than instrumenting it ourselves.
+Pretty straightforward once you understand it, but it took me a while to wrap my head around the histogram buckets.
 
 ---
 
-## Metrics Strategy
+## What's Already Being Done
 
-### Control Plane
+I looked at PR #791 which is adding metrics for experiments. From what I can tell, they're focused on the experiment execution side - tracking when experiments run and whether they succeed or fail.
 
-The GraphQL and authentication servers would expose metrics for:
-- Request volume and error rates
-- API latency and performance
-- Authentication success/failure patterns
-- Active user sessions
-- Most frequently used operations
+That's good and definitely needed, but I think there's more we could add:
 
-### Chaos Operator
+**What they're covering:**
+- Experiment execution tracking
 
-The operator would track:
-- Reconciliation activity and frequency
-- Processing time per reconciliation
-- Queue depth and backlog
-- Error rates by type
-- Experiment processing throughput
+**What seems missing:**
+- The control plane (GraphQL server, auth server) - no visibility into whether the API is working well
+- The chaos operator - is it processing experiments quickly? Are there errors?
+- Dashboards - the metrics exist but how do users actually see them?
 
-### Chaos Experiments
-
-Building on PR #791, we'd add metrics for:
-- Complete experiment lifecycle tracking (all state transitions)
-- Success/failure rates by experiment type
-- Execution duration and performance
-- Target recovery time and success
-- Resource impact (CPU, memory) during chaos
-- Injection failure reasons
-
-The specific metric names, types, labels, and histogram buckets would be determined during implementation based on Prometheus best practices and community feedback.
+My idea is to extend this to cover the whole stack, not just experiments.
 
 ---
 
-## Architecture & Implementation
+## My Proposal: What I Think We Should Add
 
-### Where Metrics Are Exposed
+Based on what I learned from my demo and reading through the LitmusChaos code, here's what I'm thinking:
 
-Each component exposes metrics on its own `/metrics` endpoint:
-```
-┌─────────────────┐
-│  Prometheus     │  (Scraper - polls every 15s)
-└────────┬────────┘
-         │
-    ┌────┴────────────────────┬─────────────────┐
-    │                         │                 │
-┌───▼─────────┐      ┌────────▼────┐    ┌──────▼──────┐
-│ GraphQL     │      │ Chaos       │    │ Experiment  │
-│ Server      │      │ Operator    │    │ Pods        │
-│ :8080       │      │ :8080       │    │ :8080       │
-│ /metrics    │      │ /metrics    │    │ /metrics    │
-└─────────────┘      └─────────────┘    └─────────────┘
-```
+### 1. Control Plane Metrics
 
-### Prometheus Scraping Config
-```yaml
-scrape_configs:
-  # Control Plane
-  - job_name: 'litmus-graphql'
-    static_configs:
-      - targets: ['graphql-server:8080']
-    
-  - job_name: 'litmus-auth'
-    static_configs:
-      - targets: ['auth-server:8080']
-  
-  # Operator
-  - job_name: 'chaos-operator'
-    kubernetes_sd_configs:
-      - role: pod
-        namespaces:
-          names: ['litmus']
-    relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_label_app]
-        regex: chaos-operator
-        action: keep
-  
-  # Experiment Pods (dynamic discovery)
-  - job_name: 'chaos-experiments'
-    kubernetes_sd_configs:
-      - role: pod
-    relabel_configs:
-      - source_labels: [__meta_kubernetes_pod_label_chaosUID]
-        action: keep
-```
+The GraphQL server and auth server are critical - if they're down or slow, nothing works. We should track:
 
-The experiment pods will be discovered automatically via Kubernetes service discovery, using the `chaosUID` label that already exists on chaos experiment pods.
+- How many API requests are happening
+- How many are failing
+- How long they take
+- Which operations are being used most
+- Authentication success/failure
 
----
+I'm not 100% sure on the exact metrics yet, but something like:
+- Request counts (counter)
+- Error counts (counter)
+- Request duration (histogram)
+- Active users (gauge)
 
-## Implementation Approach
+### 2. Chaos Operator Metrics
 
-Based on my demo experience, here's how I'd approach the implementation:
+The operator is constantly reconciling experiments. We should know:
 
-### General Pattern
+- How often it's running
+- How long reconciliation takes
+- If there are errors
+- If there's a backlog building up
 
-Each component would follow this pattern:
-1. Add Prometheus client library dependency
-2. Define metrics using appropriate types (Counter/Gauge/Histogram)
-3. Instrument key code paths (API handlers, reconciliation loops, experiment lifecycle)
-4. Expose `/metrics` endpoint
-5. Configure Prometheus scraping
+Again, I'd need to look at the operator code more carefully to figure out exactly where to put the instrumentation, but the idea is to make the operator observable.
 
-### GraphQL Server
+### 3. Better Experiment Metrics
 
-The GraphQL server would be instrumented at the middleware layer to capture all operations automatically. Metrics would track request count, duration, and errors for each operation type. The `/metrics` endpoint would be added alongside the existing `/graphql` endpoint.
+Building on PR #791, I think we could add:
 
-### Chaos Operator
+- More detailed lifecycle tracking (not just start/end, but all the states)
+- Why experiments fail (what was the error?)
+- How long it takes for targets to recover after chaos
+- Resource usage during experiments (does a CPU hog experiment actually use a lot of CPU?)
 
-The operator's reconciliation loop is the natural place to add metrics. Each reconciliation would increment counters and observe durations. Queue depth would be tracked as a gauge that increments when reconciliation starts and decrements when it completes.
+### 4. Dashboards
 
-### Chaos Experiments
+This is important - metrics are useless if people can't see them. I'm thinking two dashboards:
 
-Building on the existing PR #791 work, metrics would be added at key points in the experiment lifecycle - when experiments start, when chaos is injected, when targets recover, and when experiments complete. Resource impact would be measured by reading pod metrics during execution.
+**Dashboard 1: LitmusChaos Health**
+For people running the platform. Shows:
+- Is the API working?
+- Are there errors?
+- Is everything healthy?
 
-The specifics of where to place instrumentation calls and how to handle edge cases are things I'd figure out during the mentorship with guidance from my mentor.
+**Dashboard 2: Chaos Experiments**
+For people using LitmusChaos. Shows:
+- My experiment success rate
+- Which experiments are slowest
+- Current activity
+- Recent failures
+
+I'd base these on what I built in my demo, but adapted for LitmusChaos.
 
 ---
 
-## Implementation Timeline
+## How I'd Approach Building This
 
-I envision this work happening in three phases:
+I've never done something at this scale before, so I'm thinking I'd need to break it down:
 
-**Phase 1: Foundation**
-Start with control plane metrics (GraphQL, Auth) and chaos operator. These are the core services that are always running, so getting observability here first provides immediate value and helps validate the approach.
+### Start Simple
 
-**Phase 2: Experiment Coverage**
-Build on PR #791's work to add comprehensive experiment tracking - lifecycle states, failures, recovery, resource impact. This is where users will see the most value.
+I'd probably start with the GraphQL server since I've looked at that code a bit. Add basic metrics:
+- Count requests
+- Count errors  
+- Track duration
 
-**Phase 3: User Experience**
-Create Grafana dashboards, alerting rules, and documentation. Make the metrics actually usable for the community.
+Get that working, make sure Prometheus can scrape it, verify the data looks right.
 
-The specific timeline and sequencing would be determined with my mentor based on priorities and what makes sense technically.
----
+### Then Expand
 
-## Grafana Dashboards
+Once I understand the pattern, apply it to:
+- Auth server
+- Chaos operator
+- Experiments (working with whatever PR #791 does)
 
-Here's an example from my demo of what the dashboards would look like:
+### Finally Polish
 
-![Grafana Dashboard Example](images/grafana-dashboard.png)
+- Build the Grafana dashboards
+- Write documentation
+- Test everything
+- Get feedback from the community
 
-*Example dashboard from my demo showing real-time chaos metrics visualization*
-
----
-
-I'm picturing two main dashboards for LitmusChaos:
-
-### Dashboard 1: LitmusChaos Control Plane
-
-**Purpose:** Monitor the health and performance of the LitmusChaos platform itself
-
-**What it would show:**
-
-**API Health Row:**
-- Requests per second over time
-- Error rate percentage
-- P95 latency
-- Alert if error rate > 5% or latency > 500ms
-
-**System Health Row:**
-- Active logged-in users
-- Authentication success rate
-- Operator reconciliation rate
-- Alert if auth success < 95%
-
-**Performance Insights Row:**
-- Top 10 slowest API operations
-- Most frequently used operations
-- Operator queue depth over time
-- Alert if queue grows continuously
-
-This gives platform operators visibility into whether LitmusChaos itself is healthy.
-
-### Dashboard 2: Chaos Experiments Overview
-
-**Purpose:** Monitor chaos experiment execution and results
-
-**What it would show:**
-
-**Experiment Activity Row:**
-- Currently active experiments (big number)
-- Experiments per hour trend
-- Overall success rate
-- Alert if success rate < 90%
-
-**Performance by Type Row:**
-- P95 duration by experiment type (which types are slowest?)
-- Failure rate heatmap by experiment type
-- Identify problematic experiment patterns
-
-**Detailed Debugging Row:**
-- Recent experiments table (last 50 with type, duration, status)
-- State transition tracking over time
-- Target recovery duration
-- Resource impact graphs
-
-**Resource Impact Row:**
-- CPU usage during experiments by type
-- Memory usage during experiments by type
-- Understand the cost of chaos
-
-This gives chaos engineers visibility into their experiment results and helps debug failures.
+I'd definitely need guidance on things like:
+- Where exactly to put the metric calls in the code
+- What labels to use (I know too many labels is bad, but how do you decide?)
+- What histogram buckets make sense (my demo buckets are just guesses)
+- How to avoid breaking anything
 
 ---
 
-## What I Still Need to Learn
+## Questions I Still Have
 
-I'm being honest here - I understand the basics from building my demo, but there's stuff I'll need help with during the mentorship:
+Being honest about what I don't know:
 
-**Architecture questions:**
-- Where exactly should operator metrics be recorded? In the reconciliation loop? During CR validation? Both?
-- How do we handle high-cardinality issues? For example, if someone runs 10,000 experiments with unique names, we can't use experiment name as a label
-- Should we use PodMonitor for experiment pods or ServiceMonitor? What's the right service discovery pattern?
+**Technical stuff:**
+- How do you instrument a GraphQL server properly? Middleware? Or in each resolver?
+- What if the operator reconciles super frequently - will that create too much metric data?
+- How do we track experiments that fail before they even start running?
+- Should each experiment pod expose metrics, or should the operator aggregate them?
 
-**Technical questions:**
-- What's the best way to pass experiment metadata to metrics without creating cardinality issues?
-- How do we handle metrics for experiments that fail before they even start running?
-- Should the chaos-exporter be instrumented separately, or is that out of scope?
-- How do we track metrics across experiment retries?
+**Design decisions:**
+- What metrics do users actually care about? (I should probably ask in the community)
+- Do we need separate Prometheus instances for different components?
+- How long should we keep the metrics? (storage costs vs. being able to debug old issues)
 
-**Production questions:**
-- What histogram buckets make sense for real LitmusChaos usage? My demo buckets might not match production workloads
-- How long should we retain metrics? Storage costs vs. debugging needs trade-off
-- Do we need separate Prometheus instances for control plane vs. experiments to isolate resource usage?
-- What are realistic SLOs for the LitmusChaos control plane?
+**Practical stuff:**
+- How do we test this? Do I need a full Kubernetes cluster?
+- What if my changes slow things down?
+- How do I make sure the metrics are accurate?
 
-**Community questions:**
-- How do we make this work well for both self-hosted and SaaS deployments?
-- Should dashboards be part of the Helm chart or separate?
-- What metrics do users actually care about most? (We should validate with community)
-
-I'm comfortable figuring these out with guidance, but I don't want to pretend I have all the answers. That's what mentorship is for.
+These are all things I'd need to figure out during the mentorship.
 
 ---
 
-## Success Criteria
+## How We'd Know It's Working
 
-How do we know this project is done and working well?
+**From a technical perspective:**
+- All the components expose `/metrics` endpoints
+- Prometheus scrapes them without errors
+- The dashboards actually load and show data
+- It doesn't slow down LitmusChaos
 
-**Technical Success:**
-- All major components expose `/metrics` endpoints
-- Prometheus scrapes all targets without errors
-- Dashboards load in < 2 seconds with reasonable data volumes
-- Metrics accurately reflect system state (validated through testing)
-- Performance overhead is minimal (< 1% CPU/memory impact from instrumentation)
-- No label cardinality explosions in production
+**From a user perspective:**
+- People can answer their questions by looking at dashboards instead of digging through logs
+- The community starts using the metrics
+- We get feedback that it's helpful
 
-**User Success:**
-- Users can answer "how is my chaos engineering going?" by looking at dashboards
-- Common debugging questions are answerable via metrics ("why did this fail?", "why was this slow?")
-- SREs running LitmusChaos can set up meaningful alerts
-- The dashboards are actually used (track this via Grafana analytics)
-
-**Community Success:**
-- Documentation is clear enough that contributors can add new metrics
-- Dashboards are included in the official Helm charts
-- Metrics become part of LitmusChaos best practices documentation
-- Community feedback is positive (discussed in community calls, GitHub discussions)
-- Other chaos tools reference our observability approach as an example
+**From a community perspective:**
+- The dashboards are included in the Helm charts
+- Documentation explains how to use the metrics
+- Other contributors can add new metrics easily
 
 ---
 
-## Why I'm Prepared for This
+## Why I Want to Do This
 
 **What I bring:**
-- I'm already a LitmusChaos contributor with merged PRs.
-- I built a working Prometheus/Grafana demo from scratch and understand the observability stack
-- I've set up LitmusChaos locally, run experiments, and understand the architecture (control plane, operator, experiment execution flow)
-- I know the codebase - I've read through litmus-portal, chaos-operator, and litmus-go code
-- I'm active in the community and responsive to feedback
-- I understand both the technical side (how to instrument code) and the user side (what people need to monitor)
+- I've actually built a Prometheus/Grafana demo, so I understand the basics
+- I'm already contributing to LitmusChaos (I have a merged PR and a few active ones)
+- I've set up LitmusChaos locally and poked around the codebase
+- I'm active in the community and responsive
 
-**What I need from mentorship:**
-- Guidance on architectural decisions and trade-offs
-- Code review and production best practices
-- Help with edge cases and corner cases I haven't thought of
-- Experience making this production-grade and scalable
-- Feedback on what metrics matter most to real users
+**What I need to learn:**
+- How to do this at production scale
+- Best practices for instrumentation
+- How to make good architecture decisions
+- How to work with a mentor and take feedback
 
-I'm not claiming to be an expert. I'm a first-year student who's done enough hands-on work to understand the fundamentals, and I learn quickly when given good guidance. That's exactly what a mentorship is for.
+I'm not going to pretend I'm an expert. I'm a first-year student who's interested in observability and wants to learn by building something real. That's what mentorships are for, right?
 
 ---
 
-## References & Links
+## Links
 
-- **My Observability Demo:** https://github.com/akhilmukkara/prometheus-grafana-observability-demo
-- **PR #791 (Existing metrics work):** https://github.com/litmuschaos/litmus-go/pull/791
+- **My Demo:** https://github.com/akhilmukkara/prometheus-grafana-observability-demo
+- **PR #791 (existing metrics work):** https://github.com/litmuschaos/litmus-go/pull/791
 - **LFX Mentorship Issue:** https://github.com/litmuschaos/litmus/issues/5338
-- **My Application Comment:** https://github.com/litmuschaos/litmus/issues/5338#issuecomment-3721702000
-- **Prometheus Best Practices:** https://prometheus.io/docs/practices/naming/
-- **Prometheus Client Library (Go):** https://github.com/prometheus/client_golang
-- **LitmusChaos Documentation:** https://docs.litmuschaos.io
+- **My Application:** https://github.com/litmuschaos/litmus/issues/5338#issuecomment-3721702000
+- **My PRs:**
+  - Merged: litmus-docs #425 (ARM64 MongoDB docs)
+  - Active: litmus #5383, #5365, #4217
 
 ---
 
-*This is a living document. I'll update it based on community feedback and as I learn more during the mentorship preparation period.*
+*I'm planning to update this based on feedback from the community and my dad (who founded LitmusChaos). If you have thoughts, let me know!*
