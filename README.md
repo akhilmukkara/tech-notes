@@ -8,6 +8,15 @@ Design proposal for adding comprehensive Prometheus metrics to LitmusChaos as pa
 
 **Read the full proposal:** [DESIGN.md](DESIGN.md)
 
+### Proof-of-Concept Implementation
+
+**[GraphQL Metrics PoC](proof-of-concept/graphql-metrics/)** - Working implementation showing how Prometheus metrics would be instrumented in the LitmusChaos GraphQL server.
+
+Demonstrates:
+- Metric instrumentation with Go + Prometheus client library
+- Counter, Gauge, and Histogram usage
+- Label design and `/metrics` endpoint
+
 ### Overview
 
 This proposal covers:
