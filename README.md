@@ -46,7 +46,7 @@ To understand observability deeply, I built a working demo: https://github.com/a
 - [Observability Demo](https://github.com/akhilmukkara/prometheus-grafana-observability-demo) - Complete Prometheus + Grafana stack built from scratch
 - [Application Comment](https://github.com/litmuschaos/litmus/issues/5338#issuecomment-3721702000) - Engagement on mentorship issue
 - [BlogPost](https://medium.com/@akhil.mukkara/how-im-learning-observability-by-building-it-and-why-litmuschaos-needs-it-ac8e27b1f4da) - Covers my detailed approach.
-  
+- [BlogPost](https://medium.com/@akhil.mukkara/setting-up-end-to-end-observability-for-microservices-a25f58d42713) - Implementing the full observability stack with Online Boutique, Prometheus, and Grafana.
 **Current Status:** Contributor with merged PR and active contributions, local dev environment set up, familiar with control plane architecture (GraphQL, Auth, MongoDB)
 
 ---
