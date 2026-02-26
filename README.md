@@ -7,6 +7,7 @@ Technical design proposals and documentation.
 Design proposal for adding comprehensive Prometheus metrics to LitmusChaos as part of the LFX Mentorship program (March-May 2026).
 
 **Read the full proposal:** [DESIGN.md](DESIGN.md)
+
 **Blogpost about my approach:** [Blogpost](https://medium.com/@akhil.mukkara/how-im-learning-observability-by-building-it-and-why-litmuschaos-needs-it-ac8e27b1f4da?postPublishedType=repub)
 
 ### Proof-of-Concept Implementation
