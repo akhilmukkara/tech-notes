@@ -1,4 +1,4 @@
-# Tech Notes
+# Proposal
 
 Technical design proposals and documentation.
 
